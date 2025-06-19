@@ -222,7 +222,7 @@ export const rankingData = {
 export const mockAnnouncements: Announcement[] = [
   {
     id: '2608',
-    title: '그림체 업데이트! 취향대로 만들어봐! ⭐',
+    title: 'NEON101의 채팅 웹툰 드디어 전격 출시!! ⭐',
     url: '/announcements/2608'
   },
   {
