@@ -5,7 +5,6 @@ import Link from 'next/link'
 import { useState } from 'react'
 
 const navigationItems = [
-  { label: 'NEON101', href: '/?tab=home' },
   { label: '홈', href: '/?tab=home' },
   { label: '추천', href: '/?tab=recommend' },
   { label: '랭킹', href: '/?tab=ranking' },

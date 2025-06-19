@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Header from '@/components/layout/header'
 import BottomNavigation from '@/components/layout/bottom-navigation'
@@ -9,13 +9,31 @@ import CharacterCard from '@/components/character/character-card'
 import TermsModal from '@/components/ui/terms-modal'
 import RecommendPage from '@/components/ui/recommend-page'
 import CreatePage from '@/components/ui/create-page'
+import RankingPage from '@/components/ui/ranking-page'
 import { mockCharacters, mockAnnouncements } from '@/lib/mock-data'
 
 export default function HomePage() {
-  const [showTermsModal, setShowTermsModal] = useState(true)
+  const [showTermsModal, setShowTermsModal] = useState(false)
   const searchParams = useSearchParams()
   const currentTab = searchParams.get('tab') || 'home'
   const currentBottomTab = searchParams.get('bottomTab') || 'home'
+
+  // 페이지 로드 시 약관 동의 여부 확인
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const hasAgreed = localStorage.getItem('zeta-terms-agreed')
+      if (!hasAgreed) {
+        setShowTermsModal(true)
+      }
+    }
+  }, [])
+
+  const handleTermsAgree = () => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('zeta-terms-agreed', 'true')
+    }
+    setShowTermsModal(false)
+  }
 
   // 추천 탭이 선택된 경우 추천 페이지 표시
   if (currentTab === 'recommend') {
@@ -26,7 +44,22 @@ export default function HomePage() {
         <BottomNavigation />
         <TermsModal 
           isOpen={showTermsModal} 
-          onClose={() => setShowTermsModal(false)} 
+          onClose={handleTermsAgree} 
+        />
+      </div>
+    )
+  }
+
+  // 랭킹 탭이 선택된 경우 랭킹 페이지 표시
+  if (currentTab === 'ranking') {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Header />
+        <RankingPage />
+        <BottomNavigation />
+        <TermsModal 
+          isOpen={showTermsModal} 
+          onClose={handleTermsAgree} 
         />
       </div>
     )
@@ -41,7 +74,7 @@ export default function HomePage() {
         <BottomNavigation />
         <TermsModal 
           isOpen={showTermsModal} 
-          onClose={() => setShowTermsModal(false)} 
+          onClose={handleTermsAgree} 
         />
       </div>
     )
@@ -70,7 +103,7 @@ export default function HomePage() {
 
       <TermsModal 
         isOpen={showTermsModal} 
-        onClose={() => setShowTermsModal(false)} 
+        onClose={handleTermsAgree} 
       />
     </div>
   )
