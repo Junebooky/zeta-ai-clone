@@ -10,33 +10,34 @@ import TermsModal from '@/components/ui/terms-modal'
 import RecommendPage from '@/components/ui/recommend-page'
 import CreatePage from '@/components/ui/create-page'
 import RankingPage from '@/components/ui/ranking-page'
-import { mockCharacters, mockAnnouncements } from '@/lib/mock-data'
+import { CharacterService } from '@/lib/character-service'
+import { Character } from '@/types/character'
+import { mockAnnouncements } from '@/lib/mock-data'
 
 export default function HomePage() {
-  const [showTermsModal, setShowTermsModal] = useState(false)
   const searchParams = useSearchParams()
-  const currentTab = searchParams.get('tab') || 'home'
-  const currentBottomTab = searchParams.get('bottomTab') || 'home'
+  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'recommend')
+  const [showTermsModal, setShowTermsModal] = useState(false)
+  const [characters, setCharacters] = useState<Character[]>([])
 
-  // 페이지 로드 시 약관 동의 여부 확인
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const hasAgreed = localStorage.getItem('zeta-terms-agreed')
-      if (!hasAgreed) {
-        setShowTermsModal(true)
-      }
-    }
+    const tab = searchParams.get('tab') || 'recommend'
+    setActiveTab(tab)
+  }, [searchParams])
+
+  useEffect(() => {
+    // CharacterService를 사용하여 Supabase에서 캐릭터 데이터 가져오기
+    CharacterService.getCharacters().then(data => {
+      setCharacters(data)
+    })
   }, [])
 
   const handleTermsAgree = () => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('zeta-terms-agreed', 'true')
-    }
     setShowTermsModal(false)
   }
 
   // 추천 탭이 선택된 경우 추천 페이지 표시
-  if (currentTab === 'recommend') {
+  if (activeTab === 'recommend') {
     return (
       <div className="min-h-screen bg-gray-50">
         <Header />
@@ -51,7 +52,7 @@ export default function HomePage() {
   }
 
   // 랭킹 탭이 선택된 경우 랭킹 페이지 표시
-  if (currentTab === 'ranking') {
+  if (activeTab === 'ranking') {
     return (
       <div className="min-h-screen bg-gray-50">
         <Header />
@@ -65,12 +66,12 @@ export default function HomePage() {
     )
   }
 
-  // 하단 네비게이션의 제작 탭이 선택된 경우 제작 페이지 표시
-  if (currentBottomTab === 'create') {
+  // 제작 탭이 선택된 경우 제작 페이지 표시
+  if (activeTab === 'create') {
     return (
       <div className="min-h-screen bg-gray-50">
         <Header />
-        <CreatePage />
+        <CreatePage onAgree={() => setShowTermsModal(false)} />
         <BottomNavigation />
         <TermsModal 
           isOpen={showTermsModal} 
@@ -82,7 +83,7 @@ export default function HomePage() {
 
   // 기본 홈 페이지
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-white">
       <Header />
       
       <main className="max-w-7xl mx-auto px-4 py-6 pb-20">
@@ -90,13 +91,15 @@ export default function HomePage() {
         <BannerCarousel announcements={mockAnnouncements} />
         
         {/* 캐릭터 카드 그리드 */}
-        <div className="mt-8">
+        <section className="mt-8">
+          <h2 className="text-2xl font-bold mb-4 text-gray-900">캐릭터</h2>
+          
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-            {mockCharacters.map((character) => (
+            {characters.map((character) => (
               <CharacterCard key={character.id} character={character} />
             ))}
           </div>
-        </div>
+        </section>
       </main>
 
       <BottomNavigation />

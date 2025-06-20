@@ -1,35 +1,61 @@
 'use client'
 
-import { use } from 'react'
-import { notFound } from 'next/navigation'
+import { useEffect, useState } from 'react'
+import { notFound, useParams } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
 import { ArrowLeft, Heart, MessageCircle, Share, User, Lock } from 'lucide-react'
-import { mockCharacters } from '@/lib/mock-data'
+import { CharacterService } from '@/lib/character-service'
 import { formatInteractionCount } from '@/lib/utils'
 import { Character } from '@/types/character'
 import Header from '@/components/layout/header'
 import BottomNavigation from '@/components/layout/bottom-navigation'
 
-interface CharacterProfilePageProps {
-  params: Promise<{ id: string }>
-}
+export default function CharacterProfilePage() {
+  const params = useParams()
+  const id = params.id as string
+  const [character, setCharacter] = useState<Character | null>(null)
+  const [relatedCharacters, setRelatedCharacters] = useState<Character[]>([])
+  const [loading, setLoading] = useState(true)
 
-export default function CharacterProfilePage({ params }: CharacterProfilePageProps) {
-  const { id } = use(params)
-  
-  // 캐릭터 데이터 찾기
-  const character = mockCharacters.find(char => char.id === id)
+  useEffect(() => {
+    if (id) {
+      const fetchData = async () => {
+        setLoading(true)
+        try {
+          const char = await CharacterService.getCharacter(id)
+          if (char) {
+            setCharacter(char)
+            // 관련 캐릭터 로직 (임시로 태그 기반)
+            if (char.tags && char.tags.length > 0) {
+              const related = await CharacterService.getCharactersByTag(char.tags[0])
+              setRelatedCharacters(related.filter(r => r.id !== id).slice(0, 6))
+            }
+          } else {
+            notFound()
+          }
+        } catch (error) {
+          console.error('Failed to fetch character data:', error)
+          notFound()
+        } finally {
+          setLoading(false)
+        }
+      }
+      fetchData()
+    }
+  }, [id])
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <p>캐릭터 정보를 불러오는 중...</p>
+      </div>
+    )
+  }
   
   if (!character) {
     notFound()
   }
-
-  // 관련 캐릭터 (같은 태그를 가진 다른 캐릭터들)
-  const relatedCharacters = mockCharacters
-    .filter(char => char.id !== character.id)
-    .filter(char => char.tags.some(tag => character.tags.includes(tag)))
-    .slice(0, 6)
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -69,7 +95,7 @@ export default function CharacterProfilePage({ params }: CharacterProfilePagePro
                 </p>
                 {/* 태그들 */}
                 <div className="flex flex-wrap gap-2 justify-center">
-                  {character.tags.map((tag, index) => (
+                  {character.tags.map((tag: string, index: number) => (
                     <Link
                       key={index}
                       href={`/search?keyword=${encodeURIComponent(tag)}`}
@@ -190,7 +216,7 @@ export default function CharacterProfilePage({ params }: CharacterProfilePagePro
                   {character.name}와 관련된 캐릭터
                 </h2>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                  {relatedCharacters.map((relatedChar) => (
+                  {relatedCharacters.map((relatedChar: any) => (
                     <Link
                       key={relatedChar.id}
                       href={`/character/${relatedChar.id}`}
@@ -201,31 +227,15 @@ export default function CharacterProfilePage({ params }: CharacterProfilePagePro
                           src={relatedChar.avatarUrl}
                           alt={relatedChar.name}
                           fill
-                          className="rounded-xl object-cover group-hover:scale-105 transition-transform"
+                          className="rounded-lg object-cover group-hover:opacity-90 transition-opacity"
                         />
-                        <div className="absolute bottom-2 left-2 bg-black/70 text-white px-2 py-1 rounded-md flex items-center gap-1">
-                          <MessageCircle className="w-3 h-3" />
-                          <span className="text-xs">
-                            {formatInteractionCount(relatedChar.interactionCount)}
-                          </span>
-                        </div>
                       </div>
-                      <h3 className="font-medium text-gray-900 mb-1 line-clamp-1">
+                      <h3 className="font-semibold text-gray-800 truncate group-hover:text-blue-600">
                         {relatedChar.name}
                       </h3>
-                      <p className="text-sm text-gray-600 line-clamp-2 mb-1">
-                        {relatedChar.description}
+                      <p className="text-sm text-gray-500 truncate">
+                        @{relatedChar.creatorName}
                       </p>
-                      <div className="flex flex-wrap gap-1">
-                        {relatedChar.tags.slice(0, 2).map((tag, index) => (
-                          <span
-                            key={index}
-                            className="text-xs text-blue-600 bg-blue-100 px-2 py-0.5 rounded"
-                          >
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
                     </Link>
                   ))}
                 </div>

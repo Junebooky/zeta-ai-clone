@@ -46,11 +46,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       setLoading(true)
       // 임시 구현 - Google OAuth 시뮬레이션
+      // 다양한 프로필 이미지 중 랜덤 선택
+      const avatarOptions = [
+        '/img/boy.01.jpg',
+        '/img/boy.02.webp', 
+        '/img/boy.03.jpg',
+        '/img/boy04.webp',
+        '/img/girl.01.webp',
+        '/img/girl.02.webp',
+        '/img/girl.03.webp',
+        '/img/girl.04.webp'
+      ]
+      const randomAvatar = avatarOptions[Math.floor(Math.random() * avatarOptions.length)]
+      
       const mockUser: User = {
         id: '1',
         email: 'user@example.com',
         name: '사용자',
-        avatar_url: 'https://via.placeholder.com/40'
+        avatar_url: randomAvatar
       }
       
       localStorage.setItem('zeta-user', JSON.stringify(mockUser))

@@ -2,6 +2,7 @@
 
 import { Search, User, LogOut } from 'lucide-react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import LoginModal from '@/components/auth/login-modal'
@@ -22,6 +23,16 @@ export default function Header() {
       <nav className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
         {/* Left Navigation */}
         <div className="flex items-center space-x-8">
+          <div className="flex-shrink-0">
+            <Image
+              src="/neon101.svg"
+              alt="NEON101 Logo"
+              width={297}
+              height={180}
+              className="h-15 w-auto"
+              priority
+            />
+          </div>
           {navigationItems.map((item) => (
             <Link
               key={item.href}
@@ -55,7 +66,7 @@ export default function Header() {
                   <img 
                     src={user.avatar_url} 
                     alt={user.name}
-                    className="w-8 h-8 rounded-full"
+                    className="w-8 h-8 rounded-full object-cover border border-gray-200"
                   />
                 ) : (
                   <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
@@ -92,6 +103,4 @@ export default function Header() {
       />
     </header>
   )
-} 
-
-
+}
