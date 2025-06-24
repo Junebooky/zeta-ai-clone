@@ -9,6 +9,7 @@ import LoginModal from '@/components/auth/login-modal'
 
 const navigationItems = [
   { label: '홈', href: '/?tab=home' },
+  { label: '캐릭터', href: '/?tab=character' },
   { label: '추천', href: '/?tab=recommend' },
   { label: '랭킹', href: '/?tab=ranking' },
 ]

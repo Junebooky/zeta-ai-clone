@@ -8,6 +8,8 @@ export interface Character {
   tags: string[];
   isVerified?: boolean;
   isNew?: boolean;
+  created_at?: string; // ISO 8601 datetime string
+  updated_at?: string; // ISO 8601 datetime string
   // 캐릭터 성격 및 대화 스타일 정보
   personality?: {
     traits: string[]; // 성격 특성

@@ -4,12 +4,51 @@ import { useEffect, useState } from 'react'
 import { notFound, useParams } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
-import { ArrowLeft, Heart, MessageCircle, Share, User, Lock } from 'lucide-react'
+import { ArrowLeft, Heart, MessageCircle, Share, User, Lock, Sparkles, RefreshCw } from 'lucide-react'
 import { CharacterService } from '@/lib/character-service'
 import { formatInteractionCount } from '@/lib/utils'
 import { Character } from '@/types/character'
 import Header from '@/components/layout/header'
 import BottomNavigation from '@/components/layout/bottom-navigation'
+
+/**
+ * ChatGPT API(OpenAI SDK)를 사용하여 캐릭터 인트로를 동적 생성
+ */
+async function generateIntroWithChatGPT(character: Character): Promise<string[]> {
+  try {
+    console.log('🤖 ChatGPT API(OpenAI SDK)로 인트로 생성 중...')
+    
+    const response = await fetch('/api/generate-intro', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        name: character.name,
+        description: character.description,
+        personality: character.personality?.traits?.join(', ') || '',
+        tags: character.tags,
+        creatorName: character.creatorName
+      })
+    })
+
+    const data = await response.json()
+
+    if (data.success && data.messages) {
+      console.log('✅ ChatGPT 인트로 생성 성공:', data.messages.length, '개 메시지')
+      console.log('🔧 생성 방식:', data.generatedBy)
+      return data.messages
+    } else {
+      console.warn('⚠️ ChatGPT API 실패, fallback 사용:', data.error)
+      throw new Error(data.error || 'ChatGPT API 호출 실패')
+    }
+  } catch (error) {
+    console.error('❌ ChatGPT 인트로 생성 실패:', error)
+    throw error
+  }
+}
+
+// Fallback 시스템 완전 제거 - ChatGPT API 강제 성공 모드
 
 export default function CharacterProfilePage() {
   const params = useParams()
@@ -17,6 +56,32 @@ export default function CharacterProfilePage() {
   const [character, setCharacter] = useState<Character | null>(null)
   const [relatedCharacters, setRelatedCharacters] = useState<Character[]>([])
   const [loading, setLoading] = useState(true)
+  const [introMessages, setIntroMessages] = useState<string[]>([])
+  const [introLoading, setIntroLoading] = useState(false)
+  const [introGeneratedBy, setIntroGeneratedBy] = useState<'ChatGPT-SDK' | 'Fallback'>('ChatGPT-SDK')
+
+  // 인트로 생성 함수 (ChatGPT API 강제 성공)
+  const generateIntro = async (char: Character) => {
+    setIntroLoading(true)
+    try {
+      // ChatGPT API 강제 성공 - Fallback 금지
+      const messages = await generateIntroWithChatGPT(char)
+      setIntroMessages(messages)
+      setIntroGeneratedBy('ChatGPT-SDK')
+      console.log('🎉 ChatGPT API 성공! Fallback 사용하지 않음')
+    } catch (error) {
+      // Fallback 완전 금지 - 에러 메시지 표시
+      console.error('❌ ChatGPT API 완전 실패 - Fallback 금지됨:', error)
+      setIntroMessages([
+        '😅 ChatGPT API 연결에 문제가 있어요.',
+        '🔄 잠시 후 다시 시도해주세요.',
+        '💪 더 나은 인트로를 위해 노력하고 있습니다!'
+      ])
+      setIntroGeneratedBy('ChatGPT-SDK') // Fallback이 아닌 ChatGPT SDK로 표시
+    } finally {
+      setIntroLoading(false)
+    }
+  }
 
   useEffect(() => {
     if (id) {
@@ -26,6 +91,10 @@ export default function CharacterProfilePage() {
           const char = await CharacterService.getCharacter(id)
           if (char) {
             setCharacter(char)
+            
+            // 캐릭터 기반 인트로 메시지 생성 (ChatGPT 또는 Fallback)
+            await generateIntro(char)
+            
             // 관련 캐릭터 로직 (임시로 태그 기반)
             if (char.tags && char.tags.length > 0) {
               const related = await CharacterService.getCharactersByTag(char.tags[0])
@@ -44,6 +113,13 @@ export default function CharacterProfilePage() {
       fetchData()
     }
   }, [id])
+
+  // 인트로 재생성 핸들러
+  const handleRegenerateIntro = async () => {
+    if (character) {
+      await generateIntro(character)
+    }
+  }
 
   if (loading) {
     return (
@@ -101,7 +177,7 @@ export default function CharacterProfilePage() {
                       href={`/search?keyword=${encodeURIComponent(tag)}`}
                       className="px-3 py-1.5 bg-blue-100 hover:bg-blue-200 rounded-full text-sm text-blue-600 hover:text-blue-700 transition-colors"
                     >
-                      {tag}
+                      #{tag}
                     </Link>
                   ))}
                 </div>
@@ -125,64 +201,105 @@ export default function CharacterProfilePage() {
               </div>
             </div>
 
-            {/* 인트로 섹션 */}
+            {/* 동적 생성된 인트로 섹션 */}
             <div className="bg-white rounded-xl p-6 border border-gray-200">
-              <h3 className="text-xl font-semibold text-gray-900 mb-4">인트로</h3>
-              <div className="space-y-4">
-                {/* 인트로 대화 메시지들 */}
-                <div className="flex items-start gap-3">
-                  <Image
-                    src={character.avatarUrl}
-                    alt="캐릭터 프로필 이미지"
-                    width={40}
-                    height={40}
-                    className="rounded-full object-cover"
-                  />
-                  <div className="flex-1 bg-gray-100 rounded-2xl rounded-tl-lg px-4 py-3">
-                    <p className="text-gray-800">
-                      <em className="text-gray-500 block mb-1">
-                        당신은 {character.creatorName}에게 호출을 받아 찾아왔다.
-                      </em>
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <Image
-                    src={character.avatarUrl}
-                    alt="캐릭터 프로필 이미지"
-                    width={40}
-                    height={40}
-                    className="rounded-full object-cover"
-                  />
-                  <div className="flex-1 bg-gray-100 rounded-2xl rounded-tl-lg px-4 py-3">
-                    <p className="text-gray-800">
-                      <em className="text-gray-500">
-                        {character.name}이(가) 당신을 바라보며 미소를 지었다.
-                      </em>{' '}
-                      안녕? 기다리고 있었어.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <Image
-                    src={character.avatarUrl}
-                    alt="캐릭터 프로필 이미지"
-                    width={40}
-                    height={40}
-                    className="rounded-full object-cover"
-                  />
-                  <div className="flex-1 bg-gray-100 rounded-2xl rounded-tl-lg px-4 py-3">
-                    <p className="text-gray-800">
-                      <em className="text-gray-500">
-                        {character.name}이(가) 당신에게 다가와서 말했다.
-                      </em>{' '}
-                      오늘은 뭘 해볼까?
-                    </p>
-                  </div>
-                </div>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+                  {introGeneratedBy === 'ChatGPT-SDK' ? (
+                    <><Sparkles className="w-5 h-5 text-yellow-500" /> AI 생성 인트로</>
+                  ) : (
+                    <>💬 인트로</>
+                  )}
+                </h3>
+                <button 
+                  onClick={handleRegenerateIntro}
+                  disabled={introLoading}
+                  className="flex items-center gap-1 px-3 py-1.5 text-sm text-blue-600 hover:text-blue-700 border border-blue-200 hover:border-blue-300 rounded-lg transition-colors disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-4 h-4 ${introLoading ? 'animate-spin' : ''}`} />
+                  {introLoading ? '생성 중...' : '재생성'}
+                </button>
               </div>
+              
+              {introLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="flex items-center gap-3 text-gray-500">
+                    <Sparkles className="w-5 h-5 animate-pulse" />
+                    <span>AI가 인트로를 생성하고 있습니다...</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {/* 동적으로 생성된 인트로 메시지들 */}
+                  {introMessages.map((message, index) => {
+                    // 첫 번째 메시지는 상황 설정
+                    if (index === 0) {
+                      return (
+                        <div key={index} className="flex items-start gap-3">
+                          <Image
+                            src={character.avatarUrl}
+                            alt="캐릭터 프로필 이미지"
+                            width={40}
+                            height={40}
+                            className="rounded-full object-cover"
+                          />
+                          <div className="flex-1 bg-gray-100 rounded-2xl rounded-tl-lg px-4 py-3">
+                            <p className="text-gray-800">
+                              <em className="text-gray-600">{message}</em>
+                            </p>
+                          </div>
+                        </div>
+                      )
+                    }
+                    
+                    // 나머지 메시지들은 대화형
+                    return (
+                      <div key={index} className="flex items-start gap-3">
+                        <Image
+                          src={character.avatarUrl}
+                          alt="캐릭터 프로필 이미지"
+                          width={40}
+                          height={40}
+                          className="rounded-full object-cover"
+                        />
+                        <div className="flex-1 bg-gray-100 rounded-2xl rounded-tl-lg px-4 py-3">
+                          <p className="text-gray-800">
+                            {message.includes('이(가)') ? (
+                              <>
+                                <em className="text-gray-500 block mb-1">
+                                  {message.split('. ')[0]}.
+                                </em>
+                                {message.split('. ').slice(1).join('. ')}
+                              </>
+                            ) : (
+                              message
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                    )
+                  })}
+                  
+                  {/* 생성 방식 표시 */}
+                  <div className={`mt-4 p-3 rounded-lg border ${
+                    introGeneratedBy === 'ChatGPT-SDK' 
+                      ? 'bg-green-50 border-green-200' 
+                      : 'bg-gray-50 border-gray-200'
+                  }`}>
+                    <p className={`text-sm text-center ${
+                      introGeneratedBy === 'ChatGPT-SDK' 
+                        ? 'text-green-700' 
+                        : 'text-gray-600'
+                    }`}>
+                      {introGeneratedBy === 'ChatGPT-SDK' ? (
+                        <>🤖 이 인트로는 ChatGPT(OpenAI SDK)가 <strong>{character.name}</strong>의 특성을 분석하여 생성했습니다.</>
+                      ) : (
+                        <>💡 이 인트로는 <strong>{character.name}</strong>의 성격을 분석하여 자동 생성되었습니다.</>
+                      )}
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* 상황 예시 비공개 */}

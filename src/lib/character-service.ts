@@ -1,6 +1,38 @@
 import { Character } from '@/types/character'
 import { supabase, testSupabaseConnection } from './supabase'
 
+/**
+ * 캐릭터가 신규(NEW)인지 자동 판단하는 함수
+ * 48시간 이내에 생성된 캐릭터를 신규로 판단
+ */
+export function isCharacterNew(character: Character): boolean {
+  if (!character.created_at) {
+    return false // created_at이 없으면 신규가 아님
+  }
+  
+  try {
+    const createdAt = new Date(character.created_at)
+    const now = new Date()
+    const hoursDiff = (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60)
+    
+    // 48시간 이내면 신규
+    return hoursDiff <= 48
+  } catch (error) {
+    console.warn('날짜 파싱 오류:', error)
+    return false
+  }
+}
+
+/**
+ * 캐릭터 데이터에 자동 NEW 플래그 적용
+ */
+export function applyAutoNewFlag(characters: Character[]): Character[] {
+  return characters.map(character => ({
+    ...character,
+    isNew: character.isNew || isCharacterNew(character) // 기존 isNew 또는 자동 판단
+  }))
+}
+
 // 백업용 로컬 데이터 (Supabase 연결 실패 시 사용)
 const fallbackCharacterData = [
   {
@@ -58,31 +90,36 @@ export class CharacterService {
       if (error) {
         console.error('Supabase 캐릭터 조회 오류:', error)
         console.log('백업 데이터 사용')
-        return fallbackCharacterData as Character[]
+        return applyAutoNewFlag(fallbackCharacterData as Character[])
       }
 
       if (!data || data.length === 0) {
         console.warn('Supabase에서 캐릭터 데이터가 없음, 백업 데이터 사용')
-        return fallbackCharacterData as Character[]
+        return applyAutoNewFlag(fallbackCharacterData as Character[])
       }
 
       console.log(`Supabase에서 ${data.length}개 캐릭터 로딩 성공`)
       
-      return data.map((char: any) => ({
+      const characters = data.map((char: any) => ({
         id: char.id,
         name: char.name,
         creatorName: char.creator_name,
         description: char.description,
         avatarUrl: char.avatar_url,
-        interactionCount: char.interaction_count,
-        isVerified: char.is_verified,
-        isNew: char.is_new,
-        tags: char.tags || []
+        interactionCount: char.interaction_count || 0,
+        isVerified: char.is_verified || false,
+        isNew: char.is_new || false,
+        tags: char.tags || [],
+        created_at: char.created_at,
+        updated_at: char.updated_at
       }))
+      
+      // 자동 NEW 플래그 적용
+      return applyAutoNewFlag(characters)
     } catch (error) {
       console.error('캐릭터 데이터 로딩 실패:', error)
       console.log('백업 데이터 사용')
-      return fallbackCharacterData as Character[]
+      return applyAutoNewFlag(fallbackCharacterData as Character[])
     }
   }
 
@@ -252,6 +289,102 @@ export class CharacterService {
     return characters.filter((character: Character) => 
       character.tags.some((t: string) => t.toLowerCase() === tag.toLowerCase())
     )
+  }
+
+  /**
+   * 웹툰 순위 데이터를 가져옵니다 (상위 5개)
+   */
+  static async getWebtoonRanking(): Promise<any[]> {
+    try {
+      const characters = await this.getCharacters()
+      
+      // 상위 5개 캐릭터를 웹툰으로 변환
+      return characters.slice(0, 5).map((character, index) => ({
+        id: character.id,
+        title: character.name,
+        thumbnail: character.avatarUrl,
+        rank: index + 1,
+        author: character.creatorName,
+        view_count: character.interactionCount
+      }))
+    } catch (error) {
+      console.error('웹툰 랭킹 데이터 로딩 실패:', error)
+      // 폴백 데이터
+      return Array.from({ length: 5 }, (_, index) => ({
+        id: `webtoon-${index + 1}`,
+        title: `웹툰 ${index + 1}`,
+        thumbnail: '',
+        rank: index + 1,
+        author: '작가명',
+        view_count: Math.floor(Math.random() * 100000)
+      }))
+    }
+  }
+
+  /**
+   * 배틀 데이터를 가져옵니다 (A vs B)
+   */
+  static async getBattleData(): Promise<any> {
+    try {
+      const characters = await this.getCharacters()
+      
+      if (characters.length >= 2) {
+        const characterA = characters[0]
+        const characterB = characters[1]
+        
+        const totalVotes = characterA.interactionCount + characterB.interactionCount
+        const percentageA = Math.round((characterA.interactionCount / totalVotes) * 100)
+        const percentageB = 100 - percentageA
+        
+        return {
+          id: 'battle-1',
+          title: '이번 주 인기 캐릭터 배틀',
+          option_a: characterA.name,
+          option_b: characterB.name,
+          vote_count_a: characterA.interactionCount,
+          vote_count_b: characterB.interactionCount,
+          total_votes: totalVotes,
+          percentage_a: percentageA,
+          percentage_b: percentageB,
+          image_a: characterA.avatarUrl,
+          image_b: characterB.avatarUrl,
+          is_active: true
+        }
+      } else {
+        // 폴백 데이터
+        return {
+          id: 'battle-fallback',
+          title: '금주의 배틀',
+          option_a: '옵션 A',
+          option_b: '옵션 B',
+          vote_count_a: 800000,
+          vote_count_b: 200000,
+          total_votes: 1000000,
+          percentage_a: 80,
+          percentage_b: 20,
+          image_a: '/img/girl.01.webp',
+          image_b: '/img/boy.01.jpg',
+          is_active: true
+        }
+      }
+    } catch (error) {
+      console.error('배틀 데이터 로딩 실패:', error)
+      // 폴백 데이터
+      return {
+        id: 'battle-fallback',
+        title: '금주의 배틀',
+        option_a: '옵션 A',
+        option_b: '옵션 B',
+        vote_count_a: 800000,
+        vote_count_b: 200000,
+        total_votes: 1000000,
+        percentage_a: 80,
+        percentage_b: 20,
+        image_a: '/img/girl.01.webp',
+        image_b: '/img/boy.01.jpg',
+        is_active: true
+      }
+    }
   }
 }
 

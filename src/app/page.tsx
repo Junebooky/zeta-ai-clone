@@ -4,36 +4,108 @@ import { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Header from '@/components/layout/header'
 import BottomNavigation from '@/components/layout/bottom-navigation'
-import BannerCarousel from '@/components/ui/banner-carousel'
-import CharacterCard from '@/components/character/character-card'
 import TermsModal from '@/components/ui/terms-modal'
+import HomePage from '@/components/ui/home-page'
+import CharacterPage from '@/components/ui/character-page'
 import RecommendPage from '@/components/ui/recommend-page'
 import CreatePage from '@/components/ui/create-page'
 import RankingPage from '@/components/ui/ranking-page'
-import { CharacterService } from '@/lib/character-service'
-import { Character } from '@/types/character'
-import { mockAnnouncements } from '@/lib/mock-data'
 
-export default function HomePage() {
+export default function MainPage() {
   const searchParams = useSearchParams()
-  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'recommend')
+  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'home')
+  const [activeBottomTab, setActiveBottomTab] = useState(searchParams.get('bottomTab') || 'home')
   const [showTermsModal, setShowTermsModal] = useState(false)
-  const [characters, setCharacters] = useState<Character[]>([])
 
   useEffect(() => {
-    const tab = searchParams.get('tab') || 'recommend'
+    const tab = searchParams.get('tab') || 'home'
+    const bottomTab = searchParams.get('bottomTab') || 'home'
     setActiveTab(tab)
+    setActiveBottomTab(bottomTab)
   }, [searchParams])
 
   useEffect(() => {
-    // CharacterService를 사용하여 Supabase에서 캐릭터 데이터 가져오기
-    CharacterService.getCharacters().then(data => {
-      setCharacters(data)
-    })
+    // localStorage에서 약관 동의 여부 확인
+    const hasAgreed = localStorage.getItem('termsAgreed')
+    if (!hasAgreed) {
+      setShowTermsModal(true)
+    }
   }, [])
 
   const handleTermsAgree = () => {
+    localStorage.setItem('termsAgreed', 'true')
     setShowTermsModal(false)
+  }
+
+  // 하단 네비게이션 - 제작 탭이 선택된 경우 (bottomTab=create)
+  if (activeBottomTab === 'create') {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Header />
+        <CreatePage onAgree={() => setShowTermsModal(false)} />
+        <BottomNavigation />
+        <TermsModal 
+          isOpen={showTermsModal} 
+          onClose={handleTermsAgree} 
+        />
+      </div>
+    )
+  }
+
+  // 하단 네비게이션 - 대화 탭이 선택된 경우 (bottomTab=chat)
+  if (activeBottomTab === 'chat') {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Header />
+        <div className="max-w-6xl mx-auto px-4 py-16 pb-20">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold text-gray-900 mb-4">대화</h1>
+            <p className="text-gray-600">채팅 기능이 곧 제공될 예정입니다.</p>
+          </div>
+        </div>
+        <BottomNavigation />
+        <TermsModal 
+          isOpen={showTermsModal} 
+          onClose={handleTermsAgree} 
+        />
+      </div>
+    )
+  }
+
+  // 하단 네비게이션 - 마이페이지 탭이 선택된 경우 (bottomTab=profile)
+  if (activeBottomTab === 'profile') {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Header />
+        <div className="max-w-6xl mx-auto px-4 py-16 pb-20">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold text-gray-900 mb-4">마이페이지</h1>
+            <p className="text-gray-600">프로필 관리 기능이 곧 제공될 예정입니다.</p>
+          </div>
+        </div>
+        <BottomNavigation />
+        <TermsModal 
+          isOpen={showTermsModal} 
+          onClose={handleTermsAgree} 
+        />
+      </div>
+    )
+  }
+
+  // 상단 탭 네비게이션 처리
+  // 캐릭터 탭이 선택된 경우 캐릭터 페이지 표시
+  if (activeTab === 'character') {
+    return (
+      <div className="min-h-screen bg-white">
+        <Header />
+        <CharacterPage />
+        <BottomNavigation />
+        <TermsModal 
+          isOpen={showTermsModal} 
+          onClose={handleTermsAgree} 
+        />
+      </div>
+    )
   }
 
   // 추천 탭이 선택된 경우 추천 페이지 표시
@@ -66,7 +138,7 @@ export default function HomePage() {
     )
   }
 
-  // 제작 탭이 선택된 경우 제작 페이지 표시
+  // 제작 탭이 선택된 경우 제작 페이지 표시 (상단 탭용)
   if (activeTab === 'create') {
     return (
       <div className="min-h-screen bg-gray-50">
@@ -81,29 +153,12 @@ export default function HomePage() {
     )
   }
 
-  // 기본 홈 페이지
+  // 기본 홈 페이지 (새로운 UI)
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-gray-50">
       <Header />
-      
-      <main className="max-w-7xl mx-auto px-4 py-6 pb-20">
-        {/* 배너 캐러셀 */}
-        <BannerCarousel announcements={mockAnnouncements} />
-        
-        {/* 캐릭터 카드 그리드 */}
-        <section className="mt-8">
-          <h2 className="text-2xl font-bold mb-4 text-gray-900">캐릭터</h2>
-          
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-            {characters.map((character) => (
-              <CharacterCard key={character.id} character={character} />
-            ))}
-          </div>
-        </section>
-      </main>
-
+      <HomePage />
       <BottomNavigation />
-
       <TermsModal 
         isOpen={showTermsModal} 
         onClose={handleTermsAgree} 
